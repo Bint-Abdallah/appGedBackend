@@ -9,7 +9,7 @@ import javax.sql.DataSource;
 @Configuration
 public class DataSourceConfig {
 
-    @Value("${DATABASE_URL}")
+    @Value("${JDBC_DATABASE_URL}")
     private String databaseUrl;
 
     @Bean
