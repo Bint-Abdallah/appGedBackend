@@ -28,18 +28,20 @@ public class AuthController {
     private PasswordEncoder passwordEncoder;
     @Autowired
     private JwtService jwtService;
-
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestParam String username,
-                                      @RequestParam String fullName,
-                                      @RequestParam String password) {
+    public ResponseEntity<?> register(@RequestBody Map<String, String> request) {
         try {
+            String username = request.get("username");
+            String fullName = request.get("fullName");
+            String password = request.get("password");
+
             User user = userService.registerUser(username, fullName, password);
             return ResponseEntity.ok(user);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
 
 
     @PostMapping("/login")
