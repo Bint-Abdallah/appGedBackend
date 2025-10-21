@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -33,21 +34,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         String path = request.getServletPath();
-        String method = request.getMethod();
 
-        System.out.println("🔍 JwtFilter - " + method + " " + path);
-
-        // LAISSER PASSER les URLs publiques sans token
-        if (path.startsWith("/auth") ||
-                path.startsWith("/api/setup") ||
-                path.contains("/download") ||  // ← AJOUT CRITIQUE
-                path.contains("/preview")) {   // ← AJOUT CRITIQUE
-
-            System.out.println("✅ JwtFilter - Route publique, passage direct: " + path);
+        // Laisser passer les URLs publiques sans token
+        if (path.startsWith("/auth") || path.startsWith("/api/setup")) {
             filterChain.doFilter(request, response);
             return;
         }
-
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             filterChain.doFilter(request, response);
             return;
@@ -59,7 +51,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             final String username;
 
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                System.out.println("❌ JwtFilter - Pas de header Authorization pour: " + path);
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -67,14 +58,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             jwt = authHeader.substring(7);
             username = jwtService.extractUsername(jwt);
 
-            System.out.println("👤 JwtFilter - Username extrait: " + username + " pour: " + path);
-
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
                 if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
-                    System.out.println("✅ JwtFilter - Token valide pour: " + path);
-
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,
@@ -83,31 +70,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-
-                    System.out.println("🎭 JwtFilter - Authorities: " + userDetails.getAuthorities());
-                } else {
-                    System.out.println("❌ JwtFilter - Token invalide pour: " + path);
                 }
             }
 
             filterChain.doFilter(request, response);
 
         } catch (ExpiredJwtException e) {
+            // Token expiré
             logger.warn("JWT token expired: " + e.getMessage());
             sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
                     "Token expiré", "Votre session a expiré, veuillez vous reconnecter");
 
         } catch (SignatureException e) {
+            // Signature invalide
             logger.warn("Invalid JWT signature: " + e.getMessage());
             sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
                     "Token invalide", "Signature du token invalide");
 
         } catch (MalformedJwtException e) {
+            // Token malformé
             logger.warn("Malformed JWT token: " + e.getMessage());
             sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
                     "Token invalide", "Token malformé");
 
         } catch (Exception e) {
+            // Autres erreurs JWT
             logger.error("JWT authentication error: " + e.getMessage());
             sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
                     "Erreur d'authentification", "Token invalide");
