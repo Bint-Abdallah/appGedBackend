@@ -49,7 +49,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/archives/**").hasAnyRole("LECTEUR","CONTRIBUTEUR","ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/projects/**").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/documents").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/documents").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/documents/**").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/documents/**").hasAnyRole("CONTRIBUTEUR", "ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/documents/**").hasAnyRole("CONTRIBUTEUR", "ADMIN")
