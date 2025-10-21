@@ -35,35 +35,40 @@ public class SecurityConfig {
         return authConfig.getAuthenticationManager();
     }
 
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // ===== ROUTES PUBLIQUES =====
                         .requestMatchers("/auth/**","/login", "/register").permitAll()
-                       .requestMatchers("/", "/index.html", "/vite.svg", "/assets/**", "/uploads/**").permitAll()
+                        .requestMatchers("/", "/index.html", "/vite.svg", "/assets/**", "/uploads/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/setup/**").permitAll()
+
+                        // ===== ROUTES DE TÉLÉCHARGEMENT/PRÉVISUALISATION (DOIVENT ÊTRE AVANT) =====
+                        .requestMatchers(HttpMethod.GET, "/api/documents/{id}/download").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/documents/{id}/preview").permitAll()
+
+                        // ===== ROUTES SPÉCIFIQUES DES DOCUMENTS =====
+                        .requestMatchers(HttpMethod.GET, "/api/documents").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/documents/{id}").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/documents").hasAnyRole("CONTRIBUTEUR", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/documents/{id}").hasAnyRole("CONTRIBUTEUR", "ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/documents/{id}").hasRole("ADMIN")
+
+                        // ===== AUTRES ROUTES =====
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/archives/**").hasAnyRole("LECTEUR","CONTRIBUTEUR","ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/projects/**").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/documents").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
-                        .requestMatchers(HttpMethod.GET, "/api/documents/{id}/download").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/documents/{id}/preview").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/documents/**").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/documents/**").hasAnyRole("CONTRIBUTEUR", "ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/documents/**").hasAnyRole("CONTRIBUTEUR", "ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/documents/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/notifications/**").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
 
+                        // ===== TOUTES LES AUTRES ROUTES =====
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form.disable())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-
         return http.build();
-    }
-}
+    }}
