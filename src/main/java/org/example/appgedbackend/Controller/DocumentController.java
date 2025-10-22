@@ -222,7 +222,6 @@ public class DocumentController {
                 .contentType(MediaType.parseMediaType(contentType))
                 .body(resource);
     }
-
     // ✅ Ajouter des endpoints pour la recherche par phase
     @GetMapping("/phase/{phase}")
     public ResponseEntity<List<DocumentDto>> getDocumentsByPhase(@PathVariable Phase phase) {
