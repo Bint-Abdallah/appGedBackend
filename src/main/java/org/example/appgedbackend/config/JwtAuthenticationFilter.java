@@ -32,6 +32,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String path = request.getServletPath();
         String method = request.getMethod();
+        if (path.startsWith("/api/")) {
+            System.out.println("🌐 API Request: " + method + " " + path);
+        }
 
         System.out.println("=== 🛡️ JWT FILTER START ===");
         System.out.println("📨 Request: " + method + " " + path);
