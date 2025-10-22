@@ -24,10 +24,12 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé"));
 
-        // Convertir le rôle en GrantedAuthority avec le préfixe ROLE_
+        // 🔥 CORRECTION : Utiliser user.getRole().name() au lieu de user.getRole()
         List<GrantedAuthority> authorities = Collections.singletonList(
-                new SimpleGrantedAuthority("ROLE_" + user.getRole())
+                new SimpleGrantedAuthority("ROLE_" + user.getRole().name())
         );
+
+        System.out.println("🔐 User: " + username + ", Role: ROLE_" + user.getRole().name());
 
         return new org.springframework.security.core.userdetails.User(
                 user.getUsername(),
