@@ -43,7 +43,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource)) // 🔥 AJOUTER CETTE LIGNE
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -51,9 +51,12 @@ public class SecurityConfig {
                         .requestMatchers("/", "/index.html", "/vite.svg", "/assets/**", "/uploads/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/setup/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                        // 🔥 CORRECTION CRITIQUE : Autoriser explicitement les endpoints preview/download
                         .requestMatchers(HttpMethod.GET, "/api/documents/*/preview").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/documents/*/download").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
+
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/archives/**").hasAnyRole("LECTEUR","CONTRIBUTEUR","ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/projects/**").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/documents").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
@@ -62,11 +65,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/documents/**").hasAnyRole("CONTRIBUTEUR", "ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/documents/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/notifications/**").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
+
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form.disable())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
-    }
-}
+    }}
