@@ -13,16 +13,21 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 public class SecurityConfig {
 
     private final CustomUserDetailsService userDetailsService;
     private final org.example.appgedbackend.config.JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CorsConfigurationSource corsConfigurationSource; // 🔥 Ajouter cette ligne
 
-    public SecurityConfig(CustomUserDetailsService userDetailsService, JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(CustomUserDetailsService userDetailsService,
+                          JwtAuthenticationFilter jwtAuthenticationFilter,
+                          CorsConfigurationSource corsConfigurationSource) { // 🔥 Ajouter ce paramètre
         this.userDetailsService = userDetailsService;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.corsConfigurationSource = corsConfigurationSource; // 🔥 Initialiser
     }
 
     @Bean
@@ -35,10 +40,10 @@ public class SecurityConfig {
         return authConfig.getAuthenticationManager();
     }
 
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource)) // 🔥 AJOUTER CETTE LIGNE
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -57,12 +62,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/documents/**").hasAnyRole("CONTRIBUTEUR", "ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/documents/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/notifications/**").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
-
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form.disable())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-
 
         return http.build();
     }
