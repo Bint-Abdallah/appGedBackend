@@ -12,6 +12,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
 
 @Configuration
 public class SecurityConfig {
@@ -33,16 +38,15 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
         return authConfig.getAuthenticationManager();
     }
-
-
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ⚠️ AJOUTEZ CETTE LIGNE
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**","/login", "/register").permitAll()
-                       .requestMatchers("/", "/index.html", "/vite.svg", "/assets/**", "/uploads/**").permitAll()
+                        .requestMatchers("/", "/index.html", "/vite.svg", "/assets/**", "/uploads/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/setup/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/documents").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
@@ -56,13 +60,27 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/documents/**").hasAnyRole("CONTRIBUTEUR", "ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/documents/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/notifications/**").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
-
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form.disable())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-
         return http.build();
     }
-}
+
+    // ⚠️ AJOUTEZ CETTE MÉTHODE dans SecurityConfig
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowCredentials(true);
+        configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Disposition"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }}
+
+
