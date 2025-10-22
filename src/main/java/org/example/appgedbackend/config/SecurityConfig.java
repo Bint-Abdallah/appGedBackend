@@ -47,6 +47,8 @@ public class SecurityConfig {
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/setup/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/documents/*/preview").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/documents/*/download").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
                         .requestMatchers("/api/archives/**").hasAnyRole("LECTEUR","CONTRIBUTEUR","ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/projects/**").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/documents").hasAnyRole("LECTEUR", "CONTRIBUTEUR", "ADMIN")
