@@ -24,7 +24,9 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -39,8 +41,35 @@ public class DocumentService {
 
     @Autowired
     private UserRepository userRepository;
+
     @Autowired
     private DownloadStatRepository downloadStatRepository;
+
+    private final Path uploadDir;
+
+    public DocumentService() {
+        // 🔥 CORRECTION : Déterminer le chemin d'upload selon l'environnement
+        if (System.getenv("RENDER") != null) {
+            // Environnement Render.com - utiliser /tmp (seul dossier persisté)
+            this.uploadDir = Paths.get("/tmp/uploads");
+            System.out.println("🚀 Environnement Render.com détecté - Upload dir: /tmp/uploads");
+        } else {
+            // Environnement local
+            this.uploadDir = Paths.get("uploads");
+            System.out.println("💻 Environnement local détecté - Upload dir: uploads");
+        }
+
+        // Créer le dossier
+        try {
+            Files.createDirectories(this.uploadDir);
+            System.out.println("✅ Dossier upload créé: " + this.uploadDir.toAbsolutePath());
+            System.out.println("📁 Dossier existe: " + Files.exists(this.uploadDir));
+            System.out.println("📁 Dossier readable: " + Files.isReadable(this.uploadDir));
+            System.out.println("📁 Dossier writable: " + Files.isWritable(this.uploadDir));
+        } catch (IOException e) {
+            System.err.println("❌ Erreur création dossier upload: " + e.getMessage());
+        }
+    }
 
     // ✅ Convertir Document → DocumentDto
     private DocumentDto toDto(Document document) {
@@ -56,7 +85,7 @@ public class DocumentService {
 
         dto.setFilePath(document.getFilePath());
         dto.setStatus(document.getStatus());
-        dto.setArchived(document.isArchived()); // ✅ Ajout du champ archived
+        dto.setArchived(document.isArchived());
 
         if (document.getAuthor() != null) {
             DocumentDto.AuthorDto authorDto = new DocumentDto.AuthorDto();
@@ -77,9 +106,22 @@ public class DocumentService {
         return dto;
     }
 
+    // ✅ Vérifier si un fichier existe
+    public boolean fileExists(String filePath) {
+        if (filePath == null || filePath.trim().isEmpty()) {
+            return false;
+        }
+        try {
+            return Files.exists(Paths.get(filePath));
+        } catch (Exception e) {
+            System.err.println("❌ Erreur vérification fichier: " + filePath + " - " + e.getMessage());
+            return false;
+        }
+    }
+
     // ✅ Récupérer tous les documents ACTIFS (non archivés)
     public List<DocumentDto> getAllDocumentsDto() {
-        return documentRepository.findByArchivedFalse().stream() // ✅ Seulement les non archivés
+        return documentRepository.findByArchivedFalse().stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
@@ -93,7 +135,16 @@ public class DocumentService {
 
     // ✅ Récupérer un document par ID (inclut les archivés)
     public Optional<DocumentDto> getDocumentByIdDto(Long id) {
-        return documentRepository.findById(id).map(this::toDto);
+        Optional<Document> documentOpt = documentRepository.findById(id);
+        if (documentOpt.isPresent()) {
+            Document document = documentOpt.get();
+            // 🔥 Vérifier si le fichier existe
+            if (!fileExists(document.getFilePath())) {
+                System.err.println("⚠️ Fichier manquant pour document ID " + id + ": " + document.getFilePath());
+            }
+            return Optional.of(toDto(document));
+        }
+        return Optional.empty();
     }
 
     // ✅ Récupérer seulement les documents actifs par ID
@@ -112,7 +163,7 @@ public class DocumentService {
 
         Document document = new Document();
         document.setTitre(titre);
-        document.setPhase(phase); // ✅ Définition de la phase
+        document.setPhase(phase);
         document.setCategory(category);
         document.setProject(project);
         document.setAuthor(author);
@@ -122,17 +173,21 @@ public class DocumentService {
         document.setDateDelivrance(dateDelivrance);
         document.setArchived(false);
 
-        // Sauvegarde du fichier
-        Path uploadDir = Paths.get("uploads");
-        if (!Files.exists(uploadDir)) {
-            Files.createDirectories(uploadDir);
-        }
+        // 🔥 CORRECTION : Utiliser le chemin correct selon l'environnement
         String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-        Path filePath = uploadDir.resolve(fileName);
+        Path filePath = this.uploadDir.resolve(fileName);
+
+        System.out.println("💾 Sauvegarde fichier: " + filePath.toAbsolutePath());
+
         Files.copy(file.getInputStream(), filePath);
         document.setFilePath(filePath.toString());
 
         Document saved = documentRepository.save(document);
+
+        // Vérification
+        System.out.println("✅ Document créé - ID: " + saved.getId() + ", Fichier: " + saved.getFilePath());
+        System.out.println("📁 Fichier existe après sauvegarde: " + fileExists(saved.getFilePath()));
+
         return toDto(saved);
     }
 
@@ -144,7 +199,7 @@ public class DocumentService {
         if (documentDto.getTitre() != null) {
             existingDocument.setTitre(documentDto.getTitre());
         }
-        if (documentDto.getPhase() != null) { // ✅ Mise à jour de la phase
+        if (documentDto.getPhase() != null) {
             existingDocument.setPhase(documentDto.getPhase());
         }
         if (documentDto.getCategory() != null) {
@@ -175,7 +230,25 @@ public class DocumentService {
 
     // ✅ Supprimer un document
     public void deleteDocument(Long id) {
+        // Supprimer d'abord les statistiques de téléchargement
         downloadStatRepository.deleteByDocumentId(id);
+
+        // Récupérer le document pour supprimer le fichier physique
+        Optional<Document> documentOpt = documentRepository.findById(id);
+        if (documentOpt.isPresent()) {
+            Document document = documentOpt.get();
+            // Supprimer le fichier physique
+            try {
+                if (fileExists(document.getFilePath())) {
+                    Files.deleteIfExists(Paths.get(document.getFilePath()));
+                    System.out.println("🗑️ Fichier supprimé: " + document.getFilePath());
+                }
+            } catch (IOException e) {
+                System.err.println("❌ Erreur suppression fichier: " + e.getMessage());
+            }
+        }
+
+        // Supprimer le document de la base
         documentRepository.deleteById(id);
     }
 
@@ -265,7 +338,6 @@ public class DocumentService {
                 .collect(Collectors.toList());
     }
 
-    // ✅ Archivage automatique des documents de plus de 5 ans
     // ✅ Archivage automatique des documents dont la date de délivrance ≥ 5 ans
     @Scheduled(cron = "0 0 2 * * ?") // Exécution quotidienne à 2h du matin
     @Transactional
@@ -287,7 +359,6 @@ public class DocumentService {
                     " documents archivés (date de délivrance ≤ " + fiveYearsAgo + ")");
         }
     }
-
 
     // ✅ Compter les documents archivés
     public long countArchivedDocuments() {
@@ -345,4 +416,25 @@ public class DocumentService {
                 .collect(Collectors.toList());
     }
 
+    // 🔥 NOUVEAU : Obtenir le chemin d'upload (pour debug)
+    public String getUploadDirPath() {
+        return this.uploadDir.toAbsolutePath().toString();
+    }
+
+    // 🔥 NOUVEAU : Vérifier l'état du stockage
+    public Map<String, Object> getStorageStatus() {
+        Map<String, Object> status = new HashMap<>();
+        status.put("uploadDir", this.uploadDir.toAbsolutePath().toString());
+        status.put("exists", Files.exists(this.uploadDir));
+        status.put("readable", Files.isReadable(this.uploadDir));
+        status.put("writable", Files.isWritable(this.uploadDir));
+
+        try {
+            status.put("filesCount", Files.list(this.uploadDir).count());
+        } catch (IOException e) {
+            status.put("filesCount", "Error: " + e.getMessage());
+        }
+
+        return status;
+    }
 }
