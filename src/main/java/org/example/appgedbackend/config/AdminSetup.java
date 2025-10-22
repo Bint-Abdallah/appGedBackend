@@ -15,7 +15,7 @@ public class AdminSetup {
     @Bean
     CommandLineRunner createAdmin(UserRepository userRepository, PasswordEncoder passwordEncoder) {
         return args -> {
-            String adminEmail = "admin@ged.com";
+            String adminEmail = "adminCPCSP@ged.com";
 
             if (userRepository.findByUsername(adminEmail).isEmpty()) {
                 User admin = new User();
