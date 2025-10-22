@@ -31,34 +31,44 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
 
         String path = request.getServletPath();
+        String method = request.getMethod();
 
-        // Laisser passer les URLs publiques sans token
+        System.out.println("=== 🛡️ JWT FILTER START ===");
+        System.out.println("📨 Request: " + method + " " + path);
+
+        // URLs publiques
         if (path.startsWith("/auth") || path.startsWith("/api/setup") || path.startsWith("/uploads")) {
+            System.out.println("✅ Public route - skipping auth");
             filterChain.doFilter(request, response);
             return;
         }
 
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+        if ("OPTIONS".equalsIgnoreCase(method)) {
+            System.out.println("✅ OPTIONS request - skipping auth");
             filterChain.doFilter(request, response);
             return;
         }
 
         final String authHeader = request.getHeader("Authorization");
-        final String jwt;
-        final String username;
 
-        // 🔥 CORRECTION : Si pas de token, on laisse Spring Security gérer le rejet
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);  // Spring Security va renvoyer 401/403
+            System.out.println("❌ No Authorization header");
+            filterChain.doFilter(request, response);
             return;
         }
 
         try {
-            jwt = authHeader.substring(7);
-            username = jwtService.extractUsername(jwt);
+            String jwt = authHeader.substring(7);
+            String username = jwtService.extractUsername(jwt);
+            String role = jwtService.extractRole(jwt);
+
+            System.out.println("👤 User from token: " + username);
+            System.out.println("🎯 Role from token: " + role);
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+                System.out.println("🔑 UserDetails authorities: " + userDetails.getAuthorities());
 
                 if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
                     UsernamePasswordAuthenticationToken authToken =
@@ -69,20 +79,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             );
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                    System.out.println("✅ Authentication SUCCESS");
+                    System.out.println("🎯 SecurityContext authorities: " +
+                            SecurityContextHolder.getContext().getAuthentication().getAuthorities());
                 } else {
-                    // 🔥 Token invalide
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.getWriter().write("Token invalide ou expiré");
-                    return;
+                    System.out.println("❌ Token INVALID");
                 }
+            } else {
+                System.out.println("ℹ️ Already authenticated or username null");
             }
         } catch (Exception e) {
-            // 🔥 Erreur lors du traitement du token
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("Erreur d'authentification: " + e.getMessage());
-            return;
+            System.out.println("💥 Authentication ERROR: " + e.getMessage());
+            e.printStackTrace();
         }
 
+        System.out.println("=== 🛡️ JWT FILTER END ===");
         filterChain.doFilter(request, response);
     }
 }
